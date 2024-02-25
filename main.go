@@ -5,20 +5,24 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"sync"
 	"time"
 
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 )
 
-const schema = `
+const (
+	schema = `
 CREATE TABLE IF NOT EXISTS items (
 		id integer primary key,
 		title text,
 		description text
 );
 `
+	insert = `
+INSERT INTO items(id, title, description) VALUES($1, $2, $3)
+`
+)
 
 type Item struct {
 	Id          int    `db:"id"`
@@ -27,9 +31,6 @@ type Item struct {
 }
 
 var (
-	// Make the waitgroup global: Easier to use and less error-prone
-	wg sync.WaitGroup
-
 	// Make the database URL a configurable flag
 	dburl string
 )
@@ -50,15 +51,18 @@ func handlePanics() {
 // InsertItem inserts an item into the database.
 // Note that the db is passed as an argument.
 func InsertItem(item Item, db *sqlx.DB) {
-	defer wg.Done()
+
+	var (
+		tx  *sqlx.Tx
+		err error
+	)
+
 	// With the beginning of the transaction, a connection is acquired from the pool
-	tx, err := db.Beginx()
-	if err != nil {
+	if tx, err = db.Beginx(); err != nil {
 		panic(fmt.Errorf("beginning transaction: %s", err))
 	}
 
-	_, err = tx.Exec("INSERT INTO items(id, title, description) VALUES($1, $2, $3)", item.Id, item.Title, item.Description)
-	if err != nil {
+	if _, err = tx.Exec(insert, item.Id, item.Title, item.Description); err != nil {
 		// the rollback is rather superfluous here
 		// but it's good practice to include it
 		tx.Rollback()
@@ -68,8 +72,7 @@ func InsertItem(item Item, db *sqlx.DB) {
 		panic(fmt.Errorf("inserting data: %s", err))
 	}
 
-	err = tx.Commit()
-	if err != nil {
+	if err = tx.Commit(); err != nil {
 		panic(fmt.Errorf("committing transaction: %s", err))
 	}
 
@@ -103,42 +106,9 @@ func main() {
 	// Set the number of connections in the pool
 	db.DB.SetMaxOpenConns(10)
 
-	// use the actual value
-	maxOpen := db.DB.Stats().MaxOpenConnections
-
-	var mutex sync.Mutex
 	for i := 1; i <= 2000; i++ {
-
-		wg.Add(1)
-
-		// For goroutines, you must explicitly set the panic handler
-		go func(i int) {
-
-			defer handlePanics()
-
-			// use a label to ensure that the goroutine breaks out of inner loop
-		waitForOpenConnection:
-			for {
-				// Lock the mutex to check the number of open connections.
-				// We need to do this otherwise another goroutine could increment the number of open connections
-				mutex.Lock()
-
-				// Get the connections in the pool that are currently in use
-				switch open := db.DB.Stats().InUse; {
-
-				// If the number of open connections is less than the maximum, insert the item
-				case open <= maxOpen:
-					InsertItem(Item{Id: i, Title: "TestBook", Description: "TestDescription"}, db)
-					// Now that the item has been inserted, unlock the mutex and break out of the inner loop
-					mutex.Unlock()
-					break waitForOpenConnection
-				default:
-					// Allow other goroutines to read the number of open connections
-					mutex.Unlock()
-				}
-			}
-		}(i)
+		// use a label to ensure that the goroutine breaks out of inner loop
+		InsertItem(Item{Id: i, Title: "TestBook", Description: "TestDescription"}, db)
 	}
-	wg.Wait()
 	log.Printf("All DB Inserts completed after %s\n", time.Since(start))
 }
