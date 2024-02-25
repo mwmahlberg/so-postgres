@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
@@ -50,14 +51,13 @@ func handlePanics() {
 // Note that the db is passed as an argument.
 func InsertItem(item Item, db *sqlx.DB) {
 	defer wg.Done()
-
 	// With the beginning of the transaction, a connection is acquired from the pool
 	tx, err := db.Beginx()
 	if err != nil {
 		panic(fmt.Errorf("beginning transaction: %s", err))
 	}
 
-	_, err = tx.Queryx("INSERT INTO items(id, title, description) VALUES($1, $2, $3)", item.Id, item.Title, item.Description)
+	_, err = tx.Exec("INSERT INTO items(id, title, description) VALUES($1, $2, $3)", item.Id, item.Title, item.Description)
 	if err != nil {
 		// the rollback is rather superfluous here
 		// but it's good practice to include it
