@@ -1,0 +1,34 @@
+version: '3.1'
+
+x-vars:
+  &default-db-connection
+    POSTGRES_USER: postgres
+    POSTGRES_PASSWORD: postgres
+    POSTGRES_DB: postgres
+
+services:
+  postgres:
+    networks:
+      - app
+    image: postgres:11
+    environment: *default-db-connection
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./postgres:/var/lib/postgresql/data
+
+  app:
+    networks:
+      - app
+    build: .
+    image: mwmahlberg/so-postgres:78055954
+    platform: linux/amd64
+    ports:
+      - "3000:3000"
+    depends_on:
+      - postgres
+    environment:
+      <<: *default-db-connection
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/postgres
+networks:
+  app:
