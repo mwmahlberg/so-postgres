@@ -13,7 +13,7 @@ import (
 
 const schema = `
 CREATE TABLE IF NOT EXISTS items (
-		id serial primary key,
+		id integer primary key,
 		title text,
 		description text
 );
