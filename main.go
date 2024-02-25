@@ -1,7 +1,9 @@
 package main
 
 import (
+	"flag"
 	"fmt"
+	"log"
 	"sync"
 
 	"github.com/jmoiron/sqlx"
@@ -14,23 +16,17 @@ type Item struct {
 	Description string `db:"description"`
 }
 
-var wg sync.WaitGroup
+var (
+	wg    sync.WaitGroup
+	dburl string
+)
 
-// ConnectPostgresDB -> connect postgres db
-func ConnectPostgresDB() *sqlx.DB {
-	connstring := "user=postgres dbname=postgres sslmode=disable password=postgres host=localhost port=8080"
-	db, err := sqlx.Open("postgres", connstring)
-	if err != nil {
-		fmt.Println(err)
-		return db
-	}
-	return db
+func init() {
+	flag.StringVar(&dburl, "dburl", "user=postgres dbname=postgres sslmode=disable password=postgres host=localhost port=5432", "Postgres DB URL")
 }
 
-func InsertItem(item Item) {
+func InsertItem(item Item, db *sqlx.DB) {
 	defer wg.Done()
-	db := ConnectPostgresDB()
-	defer db.Close()
 	tx, err := db.Beginx()
 	if err != nil {
 		fmt.Println(err)
@@ -52,7 +48,20 @@ func InsertItem(item Item) {
 }
 
 func main() {
-	//db, err := sqlx.Connect("postgres", "user=postgres dbname=postgres sslmode=disable password=postgres host=localhost port=8080")
+
+	flag.Parse()
+	log.Printf("DB URL: %s\n", dburl)
+
+	var (
+		db  *sqlx.DB
+		err error
+	)
+	// Only open one connection to the database.
+	// The postgres driver will open a pool of connections for you.
+	if db, err = sqlx.Connect("postgres", dburl); err != nil {
+		log.Fatalln(err)
+	}
+
 	for i := 1; i <= 2000; i++ {
 		item := Item{Id: i, Title: "TestBook", Description: "TestDescription"}
 		wg.Add(1)
