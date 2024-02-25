@@ -99,7 +99,7 @@ func main() {
 	// Create the items table
 	// Note that if this panics, the handlePanics function will catch it and log the error
 	db.MustExec(schema)
-
+	start := time.Now()
 	for i := 1; i <= 2000; i++ {
 		item := Item{Id: i, Title: "TestBook", Description: "TestDescription"}
 		wg.Add(1)
@@ -111,5 +111,5 @@ func main() {
 		}()
 	}
 	wg.Wait()
-	fmt.Println("All DB Connection is Completed")
+	log.Printf("All DB Inserts completed after %s\n", time.Since(start))
 }
