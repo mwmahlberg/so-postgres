@@ -14,6 +14,8 @@ type Item struct {
 	Description string `db:"description"`
 }
 
+var wg sync.WaitGroup
+
 // ConnectPostgresDB -> connect postgres db
 func ConnectPostgresDB() *sqlx.DB {
 	connstring := "user=postgres dbname=postgres sslmode=disable password=postgres host=localhost port=8080"
@@ -25,7 +27,7 @@ func ConnectPostgresDB() *sqlx.DB {
 	return db
 }
 
-func InsertItem(item Item, wg *sync.WaitGroup) {
+func InsertItem(item Item) {
 	defer wg.Done()
 	db := ConnectPostgresDB()
 	defer db.Close()
@@ -50,13 +52,11 @@ func InsertItem(item Item, wg *sync.WaitGroup) {
 }
 
 func main() {
-	var wg sync.WaitGroup
 	//db, err := sqlx.Connect("postgres", "user=postgres dbname=postgres sslmode=disable password=postgres host=localhost port=8080")
 	for i := 1; i <= 2000; i++ {
 		item := Item{Id: i, Title: "TestBook", Description: "TestDescription"}
-		//go GetItem(db, i, &wg)
 		wg.Add(1)
-		go InsertItem(item, &wg)
+		go InsertItem(item)
 
 	}
 	wg.Wait()
