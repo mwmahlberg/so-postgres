@@ -10,6 +10,14 @@ import (
 	_ "github.com/lib/pq"
 )
 
+const schema = `
+CREATE TABLE IF NOT EXISTS items (
+		id serial primary key,
+		title text,
+		description text
+);
+`
+
 type Item struct {
 	Id          int    `db:"id"`
 	Title       string `db:"title"`
@@ -61,7 +69,9 @@ func main() {
 	if db, err = sqlx.Connect("postgres", dburl); err != nil {
 		log.Fatalln(err)
 	}
-
+	defer db.Close()
+	// Create the items table
+	db.MustExec(schema)
 	for i := 1; i <= 2000; i++ {
 		item := Item{Id: i, Title: "TestBook", Description: "TestDescription"}
 		wg.Add(1)
