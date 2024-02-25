@@ -73,7 +73,6 @@ func InsertItem(item Item, db *sqlx.DB) {
 		panic(fmt.Errorf("committing transaction: %s", err))
 	}
 
-	fmt.Println("Data is Successfully inserted!!")
 }
 
 func main() {
@@ -129,7 +128,6 @@ func main() {
 
 				// If the number of open connections is less than the maximum, insert the item
 				case open <= maxOpen:
-					log.Println("Inserting item")
 					InsertItem(Item{Id: i, Title: "TestBook", Description: "TestDescription"}, db)
 					// Now that the item has been inserted, unlock the mutex and break out of the inner loop
 					mutex.Unlock()
