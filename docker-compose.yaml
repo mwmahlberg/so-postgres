@@ -29,7 +29,7 @@ services:
       - postgres
     environment:
       <<: *default-db-connection
-      DATABASE_URL: postgres://postgres:postgres@postgres:5432/postgres
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/postgres?sslmode=disable
     command: sh -c '/usr/local/bin/so-postgres -dburl "$${DATABASE_URL}"'
 networks:
   app:
