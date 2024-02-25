@@ -100,15 +100,46 @@ func main() {
 	// Note that if this panics, the handlePanics function will catch it and log the error
 	db.MustExec(schema)
 	start := time.Now()
+
+	// Set the number of connections in the pool
+	db.DB.SetMaxOpenConns(10)
+
+	// use the actual value
+	maxOpen := db.DB.Stats().MaxOpenConnections
+
+	var mutex sync.Mutex
 	for i := 1; i <= 2000; i++ {
-		item := Item{Id: i, Title: "TestBook", Description: "TestDescription"}
+
 		wg.Add(1)
 
 		// For goroutines, you must explicitly set the panic handler
-		go func() {
+		go func(i int) {
+
 			defer handlePanics()
-			InsertItem(item, db)
-		}()
+
+			// use a label to ensure that the goroutine breaks out of inner loop
+		waitForOpenConnection:
+			for {
+				// Lock the mutex to check the number of open connections.
+				// We need to do this otherwise another goroutine could increment the number of open connections
+				mutex.Lock()
+
+				// Get the connections in the pool that are currently in use
+				switch open := db.DB.Stats().InUse; {
+
+				// If the number of open connections is less than the maximum, insert the item
+				case open <= maxOpen:
+					log.Println("Inserting item")
+					InsertItem(Item{Id: i, Title: "TestBook", Description: "TestDescription"}, db)
+					// Now that the item has been inserted, unlock the mutex and break out of the inner loop
+					mutex.Unlock()
+					break waitForOpenConnection
+				default:
+					// Allow other goroutines to read the number of open connections
+					mutex.Unlock()
+				}
+			}
+		}(i)
 	}
 	wg.Wait()
 	log.Printf("All DB Inserts completed after %s\n", time.Since(start))
