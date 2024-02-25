@@ -16,6 +16,11 @@ services:
       - "5432:5432"
     volumes:
      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   app:
     networks:
@@ -24,10 +29,14 @@ services:
     image: mwmahlberg/so-postgres:78055954
     platform: linux/amd64
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     environment:
       <<: *default-db-connection
       DATABASE_URL: postgres://postgres:postgres@postgres:5432/postgres?sslmode=disable
     command: sh -c '/usr/local/bin/so-postgres -dburl "$${DATABASE_URL}"'
 networks:
   app:
+
+volumes:
+  postgres-data:
