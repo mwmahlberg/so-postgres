@@ -65,7 +65,7 @@ func main() {
 	for i := 1; i <= 2000; i++ {
 		item := Item{Id: i, Title: "TestBook", Description: "TestDescription"}
 		wg.Add(1)
-		go InsertItem(item)
+		go InsertItem(item, db)
 
 	}
 	wg.Wait()
